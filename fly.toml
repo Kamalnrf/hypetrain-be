@@ -1,11 +1,15 @@
-# fly.toml file generated for hypetrain-be on 2022-09-04T21:04:41+05:30
+# fly.toml file generated for dark-night-380 on 2022-09-05T21:00:05+05:30
 
-app = "hypetrain-be"
+app = "dark-night-380"
 kill_signal = "SIGINT"
 kill_timeout = 5
 processes = []
 
+[build]
+  builder = "heroku/buildpacks:20"
+
 [env]
+  PORT = "8080"
 
 [experimental]
   allowed_public_ports = []
