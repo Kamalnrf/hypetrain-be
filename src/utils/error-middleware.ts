@@ -11,12 +11,23 @@ function errorMiddleware(
     next(error)
   } else if (error instanceof UnauthorizedError) {
     res.status(401)
-    res.json({code: error.code, message: error.message})
+    res.json({
+      success: false,
+      error: {
+        code: error.code,
+        message: error.message,
+      },
+    })
   } else {
     res.status(500)
     res.json({
-      message: error.message,
-      ...(process.env.NODE_ENV === 'production' ? null : {stack: error.stack}),
+      success: false,
+      error: {
+        message: error.message,
+        ...(process.env.NODE_ENV === 'production'
+          ? null
+          : {stack: error.stack}),
+      },
     })
   }
 }
