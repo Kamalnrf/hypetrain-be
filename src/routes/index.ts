@@ -13,7 +13,7 @@ function getRouter() {
   router.post('/register-email', authMiddleware, verifyUserId, registerEmail)
   router.get('/me', authMiddleware, verifyUserId, me)
   router.get('/preference', authMiddleware, verifyUserId, getPreferences)
-  router.put('/preference', authMiddleware, verifyUserId, updatePreferences)
+  router.post('/preference', authMiddleware, verifyUserId, updatePreferences)
 
   return router
 }
