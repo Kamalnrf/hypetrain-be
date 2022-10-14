@@ -1,8 +1,55 @@
 import axios from 'axios'
 import logger from 'loglevel'
+import {PrismaClient} from '@prisma/client'
 
 const STREAM_URL =
   'https://api.twitter.com/2/tweets/search/stream?tweet.fields=text&expansions=author_id'
+
+const prisma = new PrismaClient()
+
+function isHypetrainUser(authorId: string) {
+  const user = prisma.user.findUnique({
+    where: {
+      twitterId: authorId,
+    },
+    select: {
+      id: true,
+      twitterId: true,
+    },
+  })
+
+  return user
+}
+
+type Tweet = {
+  author_id: string
+  edit_history_tweet_ids: string[]
+  id: string
+  text: string
+}
+
+function verifyAndPushToTweetQueue(tweet: Tweet) {
+  const isValidUser = isHypetrainUser(tweet.author_id)
+  if (!isValidUser) {
+    logger.info(`Tweet ${tweet.id} author is not a member`)
+  }
+
+  pushToTweetQueue(tweet)
+}
+
+async function pushToTweetQueue(tweet: Tweet) {
+  await prisma.tweetQueue.upsert({
+    where: {tweetId: tweet.id},
+    create: {
+      tweetId: tweet.id,
+      authorId: tweet.author_id,
+      text: tweet.text,
+      isHyped: false,
+    },
+    update: {},
+  })
+  logger.info(`Added ${tweet.id} to the Tweet Queue`)
+}
 
 const streamTweets = async (retryAttempt: number) => {
   const {data: stream} = await axios.get(STREAM_URL, {
@@ -20,8 +67,8 @@ const streamTweets = async (retryAttempt: number) => {
           streamTweets(++retryAttempt)
         } else {
           if (json.data) {
-            // TODO ADD TO TWEET QUEUE
-            console.log(json.data)
+            logger.info('Received new Tweet in the stream ', json.data)
+            verifyAndPushToTweetQueue(json.data)
           } else {
             logger.error(json.data)
           }

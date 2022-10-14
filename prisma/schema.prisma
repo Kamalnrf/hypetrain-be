@@ -36,3 +36,20 @@ model Perferences {
   retweetTweets Boolean
   updatedAt     DateTime @updatedAt
 }
+
+model TweetQueue {
+  id       Int     @id @default(autoincrement())
+  tweetId  String  @unique
+  authorId String 
+  text     String
+  isHyped  Boolean
+}
+
+model Activity {
+  id        Int    @id @default(autoincrement())
+  tweetId   String
+  authorId  String
+  userId    String
+  isLike    Boolean
+  isRetweet Boolean
+}
