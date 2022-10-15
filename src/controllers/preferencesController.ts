@@ -15,7 +15,7 @@ async function getPreferences(req: Request, res: Response) {
     })
   }
 
-  const preferences = await prisma.perferences.findUnique({
+  const preferences = await prisma.preferences.findUnique({
     where: {
       userId: id,
     },
@@ -55,7 +55,7 @@ async function updatePreferences(req: Request, res: Response) {
     })
   }
 
-  const preferences = await prisma.perferences.update({
+  const preferences = await prisma.preferences.update({
     where: {
       userId: id,
     },

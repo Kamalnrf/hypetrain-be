@@ -124,8 +124,8 @@ async function postman() {
         SELECT 
           *
         FROM "User"
-        RIGHT JOIN "Perferences"
-          ON "User".id = "Perferences"."userId";`
+        RIGHT JOIN "Preferences"
+          ON "User".id = "Preferences"."userId";`
 
       users.forEach(async user => {
         try {
