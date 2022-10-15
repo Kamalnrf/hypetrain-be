@@ -26,8 +26,7 @@ async function register(req: Request, res: Response) {
       formData,
       {
         headers: {
-          Authorization:
-            'Basic AAAAAAAAAAAAAAAAAAAAAL7SgQEAAAAAXQfzX7QeVVTte1uazfXQXPHIw3I%3Ds7bdsyHai7L6nFrL9qRqiyT2MaFz9QDlf3ptZR7HYwYhFPG3qo',
+          Authorization: `Basic ${process.env.TWITTER_BEARER_TOKEN}`,
           'Content-Type': 'application/x-www-form-urlencoded',
         },
       },
