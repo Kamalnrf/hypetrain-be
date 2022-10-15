@@ -6,6 +6,7 @@ import {
   getPreferences,
   updatePreferences,
 } from '../controllers/preferencesController'
+import {getUserActivity} from '../controllers/activityController'
 
 function getRouter() {
   const router = express.Router()
@@ -14,6 +15,7 @@ function getRouter() {
   router.get('/me', authMiddleware, verifyUserId, me)
   router.get('/preference', authMiddleware, verifyUserId, getPreferences)
   router.post('/preference', authMiddleware, verifyUserId, updatePreferences)
+  router.get('/activity', authMiddleware, verifyUserId, getUserActivity)
 
   return router
 }

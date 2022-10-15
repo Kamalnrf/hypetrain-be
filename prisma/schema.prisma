@@ -29,7 +29,7 @@ model UserTwitter {
   updatedAt    DateTime @updatedAt
 }
 
-model Perferences {
+model Preferences {
   id            Int      @id @default(autoincrement())
   userId        Int      @unique
   likeTweets    Boolean

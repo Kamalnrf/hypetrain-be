@@ -53,7 +53,7 @@ async function register(req: Request, res: Response) {
       update: {},
     })
 
-    await prisma.perferences.upsert({
+    await prisma.preferences.upsert({
       where: {
         userId: user.id,
       },
