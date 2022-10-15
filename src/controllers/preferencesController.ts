@@ -64,8 +64,8 @@ async function updatePreferences(req: Request, res: Response) {
       retweetTweets: retweetTweets,
     },
     select: {
-      likeTweets,
-      retweetTweets,
+      likeTweets: true,
+      retweetTweets: true,
     },
   })
 
