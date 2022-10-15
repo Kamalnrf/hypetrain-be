@@ -1,6 +1,10 @@
 import axios from 'axios'
 import logger from 'loglevel'
 import {PrismaClient} from '@prisma/client'
+import EventEmitter from 'events'
+import {lookUpUser, likeTweet, retweet} from './actions'
+
+const postmanEmitter = new EventEmitter()
 
 const STREAM_URL =
   'https://api.twitter.com/2/tweets/search/stream?tweet.fields=text&expansions=author_id'
@@ -28,13 +32,15 @@ type Tweet = {
   text: string
 }
 
-function verifyAndPushToTweetQueue(tweet: Tweet) {
-  const isValidUser = isHypetrainUser(tweet.author_id)
+async function verifyAndPushToTweetQueue(tweet: Tweet) {
+  const isValidUser = await isHypetrainUser(tweet.author_id)
   if (!isValidUser) {
     logger.info(`Tweet ${tweet.id} author is not a member`)
+    return
   }
 
   pushToTweetQueue(tweet)
+  postmanEmitter.emit('tweet')
 }
 
 async function pushToTweetQueue(tweet: Tweet) {
@@ -51,7 +57,7 @@ async function pushToTweetQueue(tweet: Tweet) {
   logger.info(`Added ${tweet.id} to the Tweet Queue`)
 }
 
-const streamTweets = async (retryAttempt: number) => {
+async function streamTweets(retryAttempt: number) {
   const {data: stream} = await axios.get(STREAM_URL, {
     headers: {
       Authorization: `Bearer ${process.env.TWITTER_BEARER_TOKEN}`,
@@ -86,21 +92,98 @@ const streamTweets = async (retryAttempt: number) => {
     })
     .on('err', (error: {code: string}) => {
       if (error?.code !== 'ECONNRESET') {
-        logger.error(error.code)
+        logger.error('Error consuming the stream', error.code)
         process.exit(1)
       } else {
         // This reconnection logic will attempt to reconnect when a disconnection is detected.
         // To avoid rate limits, this logic implements exponential backoff, so the wait time
         // will increase if the client cannot reconnect to the stream.
         setTimeout(() => {
-          console.warn('A connection error occurred. Reconnecting...')
+          logger.warn('A stream connection error occurred. Reconnecting...')
           streamTweets(++retryAttempt)
         }, 2 ** retryAttempt)
       }
     })
 }
 
+async function postman() {
+  setInterval(async () => {
+    const tweets = await prisma.tweetQueue.findMany({
+      where: {
+        isHyped: false,
+      },
+    })
+    logger.info(`Found ${tweets.length} tweets to be hyped in Tweet Queue`)
+    tweets.forEach(async tweet => {
+      const users: {
+        twitterId: string
+        likeTweets: boolean
+        retweetTweets: boolean
+        userId: number
+      }[] = await prisma.$queryRaw`
+        SELECT 
+          *
+        FROM "User"
+        RIGHT JOIN "Perferences"
+          ON "User".id = "Perferences"."userId";`
+
+      users.forEach(async user => {
+        try {
+          if (user.twitterId !== tweet.authorId) {
+            const accessToken = await lookUpUser(user.twitterId)
+            let isLiked = false
+            let isReTweeted = false
+            if (user.likeTweets) {
+              isLiked = await likeTweet({
+                twitterAccessToken: accessToken,
+                userId: user.userId,
+                twitterId: user.twitterId,
+                tweetId: tweet.tweetId,
+              })
+            }
+
+            if (user.retweetTweets) {
+              isReTweeted = await retweet({
+                twitterAccessToken: accessToken,
+                userId: user.userId,
+                twitterId: user.twitterId,
+                tweetId: tweet.tweetId,
+              })
+            }
+
+            logger.info(
+              `Update tweet(${tweet.tweetId}) in Activity for user(${user.userId})`,
+            )
+            await prisma.activity.create({
+              data: {
+                tweetId: tweet.tweetId,
+                authorId: tweet.authorId,
+                userId: user.userId,
+                isLike: isLiked,
+                isRetweet: isReTweeted,
+              },
+            })
+          }
+        } catch (error) {
+          logger.error(error)
+        }
+      })
+
+      logger.info(`Update tweet(${tweet.tweetId}) from the queue`)
+      await prisma.tweetQueue.update({
+        where: {
+          tweetId: tweet.tweetId,
+        },
+        data: {
+          isHyped: true,
+        },
+      })
+    })
+  }, 5000)
+}
+
 export default () => {
-  logger.info('Initiating Twitter stream connection')
-  streamTweets(0)
+  logger.info('Initiating Twitter stream connection and postman')
+  streamTweets(1)
+  postman()
 }
