@@ -6,7 +6,6 @@ const prisma = new PrismaClient()
 
 async function getUserActivity(req: Request, res: Response) {
   const id = req.auth.id
-  console.log('USER ID', id)
   if (!id) {
     res.status(401).json({
       success: false,
