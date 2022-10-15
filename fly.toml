@@ -1,6 +1,6 @@
-# fly.toml file generated for dark-night-380 on 2022-09-05T21:00:05+05:30
+# fly.toml file generated for hypetrain on 2022-10-15T19:21:54+05:30
 
-app = "dark-night-380"
+app = "hypetrain"
 kill_signal = "SIGINT"
 kill_timeout = 5
 processes = []
