@@ -10,10 +10,12 @@ const prisma = new PrismaClient()
 
 async function register(req: Request, res: Response) {
   const code = req.body.code
+  const redirectURI = req.body.redirect_uri
+
   const formData = qs.stringify({
     grant_type: 'authorization_code',
     client_id: process.env.TWITTER_CLIENT_ID,
-    redirect_uri: process.env.TWITTER_REDIRECT_URI,
+    redirect_uri: redirectURI,
     code_verifier: process.env.TWITTER_CODE_VERIFIER,
     code,
   })
