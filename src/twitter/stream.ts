@@ -58,52 +58,62 @@ async function pushToTweetQueue(tweet: Tweet) {
 }
 
 async function streamTweets(retryAttempt: number) {
-  const {data: stream} = await axios.get(STREAM_URL, {
-    headers: {
-      Authorization: `Bearer ${process.env.TWITTER_BEARER_TOKEN}`,
-    },
-    responseType: 'stream',
-  })
+  try {
+    const {data: stream} = await axios.get(STREAM_URL, {
+      headers: {
+        Authorization: `Bearer ${process.env.TWITTER_BEARER_TOKEN}`,
+      },
+      responseType: 'stream',
+    })
 
-  stream
-    .on('data', (data: unknown) => {
-      try {
-        const json = JSON.parse(data as string)
-        if (json.connection_issue) {
-          streamTweets(++retryAttempt)
-        } else {
-          if (json.data) {
-            logger.info('Received new Tweet in the stream ', json.data)
-            verifyAndPushToTweetQueue(json.data)
+    logger.info('Streaming Tweets')
+    stream
+      .on('data', (data: unknown) => {
+        try {
+          const json = JSON.parse(data as string)
+          if (json.connection_issue) {
+            streamTweets(++retryAttempt)
           } else {
-            logger.error(json.data)
+            if (json.data) {
+              logger.info('Received new Tweet in the stream ', json.data)
+              verifyAndPushToTweetQueue(json.data)
+            } else {
+              logger.error(json.data)
+            }
           }
+        } catch (error) {
+          if (
+            (data as {detail?: string})?.detail ===
+            'This stream is currently at the maximum allowed connection limit.'
+          ) {
+            logger.error(data)
+            process.exit(1)
+          }
+          // Keep alive signal received. Do nothing.
         }
-      } catch (error) {
-        if (
-          (data as {detail?: string})?.detail ===
-          'This stream is currently at the maximum allowed connection limit.'
-        ) {
-          logger.error(data)
+      })
+      .on('err', (error: {code: string}) => {
+        if (error?.code !== 'ECONNRESET') {
+          logger.error('Error consuming the stream', error.code)
           process.exit(1)
+        } else {
+          // This reconnection logic will attempt to reconnect when a disconnection is detected.
+          // To avoid rate limits, this logic implements exponential backoff, so the wait time
+          // will increase if the client cannot reconnect to the stream.
+          setTimeout(() => {
+            logger.warn('A stream connection error occurred. Reconnecting...')
+            streamTweets(++retryAttempt)
+          }, 2 ** retryAttempt)
         }
-        // Keep alive signal received. Do nothing.
-      }
-    })
-    .on('err', (error: {code: string}) => {
-      if (error?.code !== 'ECONNRESET') {
-        logger.error('Error consuming the stream', error.code)
-        process.exit(1)
-      } else {
-        // This reconnection logic will attempt to reconnect when a disconnection is detected.
-        // To avoid rate limits, this logic implements exponential backoff, so the wait time
-        // will increase if the client cannot reconnect to the stream.
-        setTimeout(() => {
-          logger.warn('A stream connection error occurred. Reconnecting...')
-          streamTweets(++retryAttempt)
-        }, 2 ** retryAttempt)
-      }
-    })
+      })
+  } catch (error) {
+    // Igonre this error if it breaks with 429
+    // https://twittercommunity.com/t/rate-limit-on-tweets-stream-api/144389/8
+    setTimeout(() => {
+      logger.warn('Unable to create stream connection', error)
+      streamTweets(++retryAttempt)
+    }, 2 ** retryAttempt)
+  }
 }
 
 async function postman() {
@@ -113,72 +123,75 @@ async function postman() {
         isHyped: false,
       },
     })
-    logger.info(`Found ${tweets.length} tweets to be hyped in Tweet Queue`)
-    tweets.forEach(async tweet => {
-      const users: {
-        twitterId: string
-        likeTweets: boolean
-        retweetTweets: boolean
-        userId: number
-      }[] = await prisma.$queryRaw`
+
+    if (tweets.length > 0) {
+      logger.info(`Found ${tweets.length} tweets to be hyped in Tweet Queue`)
+      tweets.forEach(async tweet => {
+        const users: {
+          twitterId: string
+          likeTweets: boolean
+          retweetTweets: boolean
+          userId: number
+        }[] = await prisma.$queryRaw`
         SELECT 
           *
         FROM "User"
         RIGHT JOIN "Preferences"
           ON "User".id = "Preferences"."userId";`
 
-      users.forEach(async user => {
-        try {
-          if (user.twitterId !== tweet.authorId) {
-            const accessToken = await lookUpUser(user.twitterId)
-            let isLiked = false
-            let isReTweeted = false
-            if (user.likeTweets) {
-              isLiked = await likeTweet({
-                twitterAccessToken: accessToken,
-                userId: user.userId,
-                twitterId: user.twitterId,
-                tweetId: tweet.tweetId,
+        users.forEach(async user => {
+          try {
+            if (user.twitterId !== tweet.authorId) {
+              const accessToken = await lookUpUser(user.twitterId)
+              let isLiked = false
+              let isReTweeted = false
+              if (user.likeTweets) {
+                isLiked = await likeTweet({
+                  twitterAccessToken: accessToken,
+                  userId: user.userId,
+                  twitterId: user.twitterId,
+                  tweetId: tweet.tweetId,
+                })
+              }
+
+              if (user.retweetTweets) {
+                isReTweeted = await retweet({
+                  twitterAccessToken: accessToken,
+                  userId: user.userId,
+                  twitterId: user.twitterId,
+                  tweetId: tweet.tweetId,
+                })
+              }
+
+              logger.info(
+                `Update tweet(${tweet.tweetId}) in Activity for user(${user.userId})`,
+              )
+              await prisma.activity.create({
+                data: {
+                  tweetId: tweet.tweetId,
+                  authorId: tweet.authorId,
+                  userId: user.userId,
+                  isLike: isLiked,
+                  isRetweet: isReTweeted,
+                },
               })
             }
-
-            if (user.retweetTweets) {
-              isReTweeted = await retweet({
-                twitterAccessToken: accessToken,
-                userId: user.userId,
-                twitterId: user.twitterId,
-                tweetId: tweet.tweetId,
-              })
-            }
-
-            logger.info(
-              `Update tweet(${tweet.tweetId}) in Activity for user(${user.userId})`,
-            )
-            await prisma.activity.create({
-              data: {
-                tweetId: tweet.tweetId,
-                authorId: tweet.authorId,
-                userId: user.userId,
-                isLike: isLiked,
-                isRetweet: isReTweeted,
-              },
-            })
+          } catch (error) {
+            logger.error(error)
           }
-        } catch (error) {
-          logger.error(error)
-        }
-      })
+        })
 
-      logger.info(`Update tweet(${tweet.tweetId}) from the queue`)
-      await prisma.tweetQueue.update({
-        where: {
-          tweetId: tweet.tweetId,
-        },
-        data: {
-          isHyped: true,
-        },
+        logger.info(`Update tweet(${tweet.tweetId}) from the queue`)
+        await prisma.tweetQueue.update({
+          where: {
+            tweetId: tweet.tweetId,
+          },
+          data: {
+            isHyped: true,
+          },
+        })
       })
-    })
+    }
   }, 5000)
 }
 
