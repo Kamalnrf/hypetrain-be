@@ -1,7 +1,4 @@
-node_modules/
-.git/
-.dockerignore
 Dockerfile
-docker-compose.yml
-.gitignore
-*.env
+.dockerignore
+node_modules
+.git
