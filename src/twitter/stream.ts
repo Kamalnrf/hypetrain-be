@@ -116,6 +116,10 @@ async function streamTweets(retryAttempt: number) {
   }
 }
 
+function isRetweet(tweet: string) {
+  return tweet.startsWith('RT')
+}
+
 async function postman() {
   setInterval(async () => {
     const tweets = await prisma.tweetQueue.findMany({
@@ -141,7 +145,7 @@ async function postman() {
 
         users.forEach(async user => {
           try {
-            if (user.twitterId !== tweet.authorId) {
+            if (user.twitterId !== tweet.authorId && !isRetweet(tweet.text)) {
               const accessToken = await lookUpUser(user.twitterId)
               let isLiked = false
               let isReTweeted = false
