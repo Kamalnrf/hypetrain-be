@@ -2,6 +2,7 @@ import express from 'express'
 import {register, registerEmail} from '../controllers/authController'
 import {me} from '../controllers/userController'
 import {authMiddleware, verifyUserId} from '../utils/auth'
+import {deactivateUser} from '../controllers/deactivateController'
 import {
   getPreferences,
   updatePreferences,
@@ -16,7 +17,7 @@ function getRouter() {
   router.get('/preference', authMiddleware, verifyUserId, getPreferences)
   router.post('/preference', authMiddleware, verifyUserId, updatePreferences)
   router.get('/activity', authMiddleware, verifyUserId, getUserActivity)
-
+  router.delete('/deactivate', authMiddleware, verifyUserId, deactivateUser)
   return router
 }
 export default getRouter
