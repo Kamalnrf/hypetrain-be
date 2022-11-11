@@ -12,7 +12,46 @@ type TweetDetails = {
   tweetId: string
 }
 
-export async function lookUpUser(twitterId: string) {
+async function refreshToken(twitterId: string, refreshToken: string) {
+  const formData = qs.stringify({
+    grant_type: 'refresh_token',
+    client_id: process.env.TWITTER_CLIENT_ID,
+    refresh_token: refreshToken,
+  })
+
+  try {
+    logger.info('Refreshing token for user twitterId:', twitterId)
+    const {data} = await axios.post(
+      'https://api.twitter.com/2/oauth2/token',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      },
+    )
+
+    await prisma.userTwitter.update({
+      where: {
+        twitterId: twitterId,
+      },
+      data: {
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token,
+      },
+    })
+
+    return await lookUpUser(twitterId)
+  } catch (error) {
+    logger.error(
+      `Unable to refresh token for user twitterId:${twitterId}`,
+      error,
+    )
+    throw new Error(error)
+  }
+}
+
+export async function lookUpUser(twitterId: string): Promise<string> {
   const userTokens = await prisma.userTwitter.findUnique({
     where: {
       twitterId: twitterId,
@@ -22,46 +61,6 @@ export async function lookUpUser(twitterId: string) {
       refreshToken: true,
     },
   })
-
-  async function refreshToken() {
-    const formData = qs.stringify({
-      grant_type: 'refresh_token',
-      client_id: process.env.TWITTER_CLIENT_ID,
-      refresh_token: userTokens.refreshToken,
-    })
-
-    try {
-      const {data} = await axios.post(
-        'https://api.twitter.com/2/oauth2/token',
-        formData,
-        {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-        },
-      )
-
-      await prisma.userTwitter.update({
-        where: {
-          twitterId: twitterId,
-        },
-        data: {
-          accessToken: data.access_token,
-          refreshToken: data.refresh_token,
-        },
-      })
-
-      await lookUpUser(twitterId)
-
-      console.log('data =>', data)
-    } catch (error) {
-      logger.error(
-        `Unable to refresh token for user twitterId:${twitterId}`,
-        error,
-      )
-      throw new Error(error)
-    }
-  }
 
   try {
     const {data} = await axios.get('https://api.twitter.com/2/users/me', {
@@ -79,10 +78,11 @@ export async function lookUpUser(twitterId: string) {
         username: data.username,
       },
     })
+
     return userTokens.accessToken
   } catch (error) {
     if (error instanceof AxiosError && error.response.status === 401) {
-      await refreshToken()
+      return await refreshToken(twitterId, userTokens.refreshToken)
     } else {
       logger.info(`Unable to fetch user details for ${twitterId}`)
     }
