@@ -1,6 +1,6 @@
 import axios, {AxiosError} from 'axios'
 import {PrismaClient} from '@prisma/client'
-import logger from 'loglevel'
+import logger from '../utils/logger'
 import qs from 'qs'
 
 const prisma = new PrismaClient()
@@ -20,7 +20,11 @@ async function refreshToken(twitterId: string, refreshToken: string) {
   })
 
   try {
-    logger.info('Refreshing token for user twitterId:', twitterId)
+    logger.info({
+      message: 'Refreshing token for user',
+      twitterId,
+      method: 'refreshToken',
+    })
     const {data} = await axios.post(
       'https://api.twitter.com/2/oauth2/token',
       formData,
@@ -43,10 +47,12 @@ async function refreshToken(twitterId: string, refreshToken: string) {
 
     return await lookUpUser(twitterId)
   } catch (error) {
-    logger.error(
-      `Unable to refresh token for user twitterId:${twitterId}`,
+    logger.error({
+      message: 'Unable to refresh token for user',
       error,
-    )
+      twitterId,
+      method: 'refreshToken',
+    })
     throw new Error(error)
   }
 }
@@ -84,7 +90,11 @@ export async function lookUpUser(twitterId: string): Promise<string> {
     if (error instanceof AxiosError && error.response.status === 401) {
       return await refreshToken(twitterId, userTokens.refreshToken)
     } else {
-      logger.info(`Unable to fetch user details for ${twitterId}`)
+      logger.error({
+        message: 'Unable to fetch user',
+        twitterId,
+        method: 'lookUpUser',
+      })
     }
   }
 }
@@ -106,10 +116,12 @@ export async function retweet(tweetDetails: TweetDetails) {
     return true
   } catch (error) {
     if (error instanceof AxiosError) {
-      logger.error(
-        `This tweet cannot be found. ${tweetDetails.tweetId}`,
-        error.response.data,
-      )
+      logger.warn({
+        message: 'Tweet to retweet cannot be found',
+        tweeetId: tweetDetails.tweetId,
+        error: error.response.data,
+        method: 'retweet',
+      })
     }
   }
 
@@ -133,10 +145,12 @@ export async function likeTweet(tweetDetails: TweetDetails) {
     return true
   } catch (error) {
     if (error instanceof AxiosError) {
-      logger.error(
-        `This tweet cannot be found. ${tweetDetails.tweetId}`,
-        error.response.data,
-      )
+      logger.warn({
+        message: `Tweet to like cannot be found.`,
+        tweetId: tweetDetails.tweetId,
+        error: error.response.data,
+        method: 'likeTweet',
+      })
     }
   }
 
