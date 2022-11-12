@@ -1,6 +1,6 @@
-# fly.toml file generated for hypetrain on 2022-11-13T02:46:06+05:30
+# fly.toml file generated for hypetrain-staging on 2022-11-07T01:31:54+05:30
 
-app = "hypetrain"
+app = "hypetrain-staging"
 kill_signal = "SIGINT"
 kill_timeout = 5
 processes = []
