@@ -125,7 +125,9 @@ async function streamTweets(retryAttempt: number) {
           // will increase if the client cannot reconnect to the stream.
           setTimeout(() => {
             logger.warn({
-              message: 'A stream connection error occurred. Reconnecting...',
+              message: `A stream connection error occurred. Reconnecting in ${
+                2 ** retryAttempt
+              }ms...`,
               method: 'streamTweets',
             })
             streamTweets(++retryAttempt)
@@ -137,7 +139,9 @@ async function streamTweets(retryAttempt: number) {
     // https://twittercommunity.com/t/rate-limit-on-tweets-stream-api/144389/8
     setTimeout(() => {
       logger.warn({
-        message: 'Unable to create stream connection',
+        message: `Unable to create stream connection, will try again in ${
+          2 ** retryAttempt
+        }ms`,
         error,
       })
       streamTweets(++retryAttempt)

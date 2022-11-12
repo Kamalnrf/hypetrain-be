@@ -7,7 +7,7 @@ const logger = pino({
       return {level: label}
     },
   },
-  redact: ['accessToken', 'refreshToken', 'token'],
+  redact: ['accessToken', 'refreshToken', 'token', 'Authorization'],
 })
 
 export default logger
