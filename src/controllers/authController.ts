@@ -1,6 +1,6 @@
 import {Request, Response} from 'express'
 import {Request as JWTRequest} from 'express-jwt'
-import logger from 'loglevel'
+import logger from '../utils/logger'
 import axios, {AxiosError} from 'axios'
 import qs from 'qs'
 import {getUserToken} from '../utils/auth'
@@ -95,12 +95,13 @@ async function register(req: Request, res: Response) {
       },
     })
   } catch (error) {
-    console.log('Error =>', error)
     if (error instanceof AxiosError) {
-      logger.error('Bad Response from Twitter API', {
+      logger.error({
+        message: 'Bad Response from Twitter API',
+        method: 'register',
         code: error.code,
         satus: error.response.status,
-        message: error.message,
+        error,
       })
       res.status(error.response.status).json({
         success: false,
@@ -110,7 +111,11 @@ async function register(req: Request, res: Response) {
         },
       })
     } else {
-      logger.error('Bad Response from Twitter API', error)
+      logger.error({
+        message: 'Bad Response from Twitter API',
+        error,
+        method: 'register',
+      })
       res.status(500).json({
         success: false,
         error: {

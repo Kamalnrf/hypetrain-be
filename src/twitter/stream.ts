@@ -1,5 +1,5 @@
 import axios from 'axios'
-import logger from 'loglevel'
+import logger from '../utils/logger'
 import {PrismaClient} from '@prisma/client'
 import EventEmitter from 'events'
 import {lookUpUser, likeTweet, retweet} from './actions'
@@ -35,7 +35,11 @@ type Tweet = {
 async function verifyAndPushToTweetQueue(tweet: Tweet) {
   const isValidUser = await isHypetrainUser(tweet.author_id)
   if (!isValidUser) {
-    logger.info(`Tweet ${tweet.id} author is not a member`)
+    logger.info({
+      message: `Tweet ${tweet.id} author is not a member`,
+      tweetId: tweet.id,
+      method: 'verifyAndPushToTweetQueue',
+    })
     return
   }
 
@@ -54,7 +58,12 @@ async function pushToTweetQueue(tweet: Tweet) {
     },
     update: {},
   })
-  logger.info(`Added ${tweet.id} to the Tweet Queue`)
+  logger.info({
+    message: `Added ${tweet.id} to the Tweet Queue`,
+    tweetId: tweet.id,
+    authorId: tweet.author_id,
+    method: 'pushToTweetQueue',
+  })
 }
 
 async function streamTweets(retryAttempt: number) {
@@ -66,7 +75,7 @@ async function streamTweets(retryAttempt: number) {
       responseType: 'stream',
     })
 
-    logger.info('Streaming Tweets')
+    logger.info({message: 'Streaming Tweets', method: 'streamTweets'})
     stream
       .on('data', (data: unknown) => {
         try {
@@ -75,7 +84,11 @@ async function streamTweets(retryAttempt: number) {
             streamTweets(++retryAttempt)
           } else {
             if (json.data) {
-              logger.info('Received new Tweet in the stream ', json.data)
+              logger.info({
+                message: 'Received new Tweet in the stream ',
+                data: json.data,
+                method: 'streamTweets',
+              })
               verifyAndPushToTweetQueue(json.data)
             } else {
               logger.error(json.data)
@@ -86,7 +99,12 @@ async function streamTweets(retryAttempt: number) {
             (data as {detail?: string})?.detail ===
             'This stream is currently at the maximum allowed connection limit.'
           ) {
-            logger.error(data)
+            logger.error({
+              message:
+                'This stream is currently at the maximum allowed connection limit.',
+              error: data,
+              method: 'streamTweets',
+            })
             process.exit(1)
           }
           // Keep alive signal received. Do nothing.
@@ -94,14 +112,22 @@ async function streamTweets(retryAttempt: number) {
       })
       .on('err', (error: {code: string}) => {
         if (error?.code !== 'ECONNRESET') {
-          logger.error('Error consuming the stream', error.code)
+          logger.error({
+            message: 'Error consuming the stream',
+            code: error.code,
+            error: error,
+            method: 'streamTweets',
+          })
           process.exit(1)
         } else {
           // This reconnection logic will attempt to reconnect when a disconnection is detected.
           // To avoid rate limits, this logic implements exponential backoff, so the wait time
           // will increase if the client cannot reconnect to the stream.
           setTimeout(() => {
-            logger.warn('A stream connection error occurred. Reconnecting...')
+            logger.warn({
+              message: 'A stream connection error occurred. Reconnecting...',
+              method: 'streamTweets',
+            })
             streamTweets(++retryAttempt)
           }, 2 ** retryAttempt)
         }
@@ -110,7 +136,10 @@ async function streamTweets(retryAttempt: number) {
     // Igonre this error if it breaks with 429
     // https://twittercommunity.com/t/rate-limit-on-tweets-stream-api/144389/8
     setTimeout(() => {
-      logger.warn('Unable to create stream connection', error)
+      logger.warn({
+        message: 'Unable to create stream connection',
+        error,
+      })
       streamTweets(++retryAttempt)
     }, 2 ** retryAttempt)
   }
@@ -129,7 +158,10 @@ async function postman() {
     })
 
     if (tweets.length > 0) {
-      logger.info(`Found ${tweets.length} tweets to be hyped in Tweet Queue`)
+      logger.info({
+        message: `Found ${tweets.length} tweets to be hyped in Tweet Queue`,
+        method: 'postman',
+      })
       tweets.forEach(async tweet => {
         const users: {
           twitterId: string
@@ -167,9 +199,12 @@ async function postman() {
                 })
               }
 
-              logger.info(
-                `Update tweet(${tweet.tweetId}) in Activity for user(${user.userId})`,
-              )
+              logger.info({
+                message: `Update tweet(${tweet.tweetId}) in Activity for user(${user.userId})`,
+                tweetId: tweet.tweetId,
+                userId: user.userId,
+                method: 'postman',
+              })
               await prisma.activity.create({
                 data: {
                   tweetId: tweet.tweetId,
@@ -181,11 +216,21 @@ async function postman() {
               })
             }
           } catch (error) {
-            logger.error(error)
+            logger.error({
+              message: `Somthing broke in hyping for user ${user.userId}`,
+              user: user.userId,
+              error,
+              method: 'postman',
+            })
           }
         })
 
-        logger.info(`Update tweet(${tweet.tweetId}) from the queue`)
+        logger.info({
+          message: `Removing tweet(${tweet.tweetId}) from the queue`,
+          tweetId: tweet.tweetId,
+          method: 'postman',
+        })
+
         await prisma.tweetQueue.update({
           where: {
             tweetId: tweet.tweetId,
