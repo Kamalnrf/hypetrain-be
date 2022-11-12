@@ -8,7 +8,7 @@ permissions:
   actions: write
   contents: read
 
-job:
+jobs:
   build:
     name: 🐳 Build
     # only build/deploy main branch on pushes
