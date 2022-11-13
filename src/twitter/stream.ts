@@ -43,6 +43,15 @@ async function verifyAndPushToTweetQueue(tweet: Tweet) {
     return
   }
 
+  if (isRetweet(tweet.text)) {
+    logger.info({
+      message: `Retweet tweets are not hyped`,
+      tweetId: tweet.id,
+      method: 'verifyAndPushToTweetQueue',
+    })
+    return
+  }
+
   pushToTweetQueue(tweet)
   postmanEmitter.emit('tweet')
 }

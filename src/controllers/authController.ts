@@ -121,7 +121,7 @@ async function register(req: Request, res: Response) {
       })
     } else {
       logger.error({
-        event: 'TWITTER-REGISTER-NEW-USER-FAILURE',
+        event: 'TWITTER-AUTH-FAILURE',
         message: 'Bad Response from Twitter API',
         error,
         method: 'register',
