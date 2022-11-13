@@ -1,6 +1,7 @@
 import {Request} from 'express-jwt'
 import {Response} from 'express'
 import {PrismaClient} from '@prisma/client'
+import logger from '../utils/logger'
 
 const prisma = new PrismaClient()
 
@@ -67,6 +68,15 @@ async function updatePreferences(req: Request, res: Response) {
       likeTweets: true,
       retweetTweets: true,
     },
+  })
+
+  logger.info({
+    event: 'TWEET-PREFERENCE-UPDATE',
+    message: 'Tweet Preference Updated',
+    likeTweets: preferences.likeTweets,
+    retweetTweets: preferences.retweetTweets,
+    method: 'updatePreferences',
+    userId: id,
   })
 
   res.status(200).json({

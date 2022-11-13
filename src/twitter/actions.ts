@@ -48,6 +48,7 @@ async function refreshToken(twitterId: string, refreshToken: string) {
     return await lookUpUser(twitterId)
   } catch (error) {
     logger.error({
+      event: 'TWITTER-TOKEN-REFRESH-FAILURE',
       message: 'Unable to refresh token for user',
       error,
       twitterId,
@@ -113,10 +114,19 @@ export async function retweet(tweetDetails: TweetDetails) {
       },
     )
 
+    logger.info({
+      event: 'TWEET-RETWEETED',
+      message: `Tweet ${tweetDetails.tweetId} retweeted`,
+      method: 'retweet',
+      tweetId: tweetDetails.tweetId,
+      userId: tweetDetails.userId,
+    })
+
     return true
   } catch (error) {
     if (error instanceof AxiosError) {
       logger.warn({
+        event: 'TWEET-RETWEET-FAILED',
         message: 'Tweet to retweet cannot be found',
         tweeetId: tweetDetails.tweetId,
         error: error.response.data,
@@ -142,10 +152,19 @@ export async function likeTweet(tweetDetails: TweetDetails) {
       },
     )
 
+    logger.info({
+      event: 'TWEET-LIKED',
+      message: `Tweet ${tweetDetails.tweetId} liked`,
+      method: 'retweet',
+      tweetId: tweetDetails.tweetId,
+      userId: tweetDetails.userId,
+    })
+
     return true
   } catch (error) {
     if (error instanceof AxiosError) {
       logger.warn({
+        event: 'TWEET-LIKE-FAILED',
         message: `Tweet to like cannot be found.`,
         tweetId: tweetDetails.tweetId,
         error: error.response.data,
