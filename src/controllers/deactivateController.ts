@@ -70,6 +70,12 @@ async function deactivateUser(req: Request, res: Response) {
       },
     })
   } catch (error) {
+    logger.error({
+      event: 'DELETE-ACCOUNT-FAILED',
+      userId: id,
+      message: 'Deleting account failed',
+      method: 'deactivateAccount',
+    })
     res.status(500).json({
       success: false,
       error: {

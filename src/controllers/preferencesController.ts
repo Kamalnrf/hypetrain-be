@@ -76,6 +76,7 @@ async function updatePreferences(req: Request, res: Response) {
     likeTweets: preferences.likeTweets,
     retweetTweets: preferences.retweetTweets,
     method: 'updatePreferences',
+    userId: id,
   })
 
   res.status(200).json({
