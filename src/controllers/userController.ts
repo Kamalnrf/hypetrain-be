@@ -15,12 +15,26 @@ async function me(req: Request, res: Response) {
       username: true,
       name: true,
       email: true,
+      twitterId: true,
+    },
+  })
+
+  const activity = await prisma.activity.findFirst({
+    where: {
+      authorId: user.twitterId,
+    },
+    select: {
+      id: true,
     },
   })
 
   res.status(200).json({
     success: true,
-    data: user,
+    data: {
+      username: user.username,
+      name: user.name,
+      hasTweeted: Boolean(activity?.id),
+    },
   })
 }
 
