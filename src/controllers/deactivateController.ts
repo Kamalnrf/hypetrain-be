@@ -1,6 +1,7 @@
 import {Request} from 'express-jwt'
 import {Response} from 'express'
 import {PrismaClient} from '@prisma/client'
+import logger from '../utils/logger'
 
 const prisma = new PrismaClient()
 
@@ -53,6 +54,13 @@ async function deactivateUser(req: Request, res: Response) {
       where: {
         userId: id,
       },
+    })
+
+    logger.info({
+      event: 'DELETE-ACCOUNT',
+      userId: id,
+      message: 'User Account Deleted',
+      method: 'deactivateUser',
     })
 
     res.status(200).json({

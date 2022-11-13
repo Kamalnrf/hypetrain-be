@@ -82,6 +82,14 @@ async function register(req: Request, res: Response) {
       },
     })
 
+    logger.info({
+      message: 'Add new user',
+      event: 'TWITTER-REGISTER-NEW-USER-SUCCESS',
+      method: 'register',
+      userId: user.id,
+      twitter: user.twitterId,
+    })
+
     res.json({
       success: true,
       data: {
@@ -97,6 +105,7 @@ async function register(req: Request, res: Response) {
   } catch (error) {
     if (error instanceof AxiosError) {
       logger.error({
+        event: 'TWITTER-REGISTER-NEW-USER-FAILURE',
         message: 'Bad Response from Twitter API',
         method: 'register',
         code: error.code,
@@ -112,6 +121,7 @@ async function register(req: Request, res: Response) {
       })
     } else {
       logger.error({
+        event: 'TWITTER-REGISTER-NEW-USER-FAILURE',
         message: 'Bad Response from Twitter API',
         error,
         method: 'register',

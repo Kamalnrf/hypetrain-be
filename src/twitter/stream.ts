@@ -63,6 +63,7 @@ async function pushToTweetQueue(tweet: Tweet) {
     tweetId: tweet.id,
     authorId: tweet.author_id,
     method: 'pushToTweetQueue',
+    event: 'TWEET-ADDED-TO-HYPEQUEUE',
   })
 }
 
@@ -233,6 +234,7 @@ async function postman() {
           message: `Removing tweet(${tweet.tweetId}) from the queue`,
           tweetId: tweet.tweetId,
           method: 'postman',
+          event: 'TWEET-REMOVED-FROM-HYPEQUEUE',
         })
 
         await prisma.tweetQueue.update({
