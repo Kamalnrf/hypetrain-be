@@ -25,11 +25,40 @@ function isHypetrainUser(authorId: string) {
   return user
 }
 
+type TweetReference = {
+  id: string
+  type: 'retweeted' | 'replied_to' | 'quoted'
+}[]
+
 type Tweet = {
   author_id: string
   edit_history_tweet_ids: string[]
+  referenced_tweets?: {
+    id: string
+    type: 'retweeted' | 'replied_to' | 'quoted'
+  }[]
   id: string
   text: string
+}
+
+async function isReferencedTweetHyped(referenced_tweets: TweetReference) {
+  const tweetIds = referenced_tweets.map(tweet => tweet.id)
+  for (const id of tweetIds) {
+    const activity = await prisma.activity.findFirst({
+      where: {
+        tweetId: id,
+      },
+      select: {
+        authorId: true,
+      },
+    })
+
+    if (activity?.authorId) {
+      return true
+    }
+  }
+
+  return false
 }
 
 async function verifyAndPushToTweetQueue(tweet: Tweet) {
@@ -43,10 +72,11 @@ async function verifyAndPushToTweetQueue(tweet: Tweet) {
     return
   }
 
-  if (isRetweet(tweet.text)) {
+  if (isReferencedTweetHyped(tweet.referenced_tweets)) {
     logger.info({
-      message: `Retweet tweets are not hyped`,
+      message: 'Refrenced Tweet is already hyped',
       tweetId: tweet.id,
+      details: tweet,
       method: 'verifyAndPushToTweetQueue',
     })
     return
@@ -159,10 +189,6 @@ async function streamTweets(retryAttempt: number) {
   }
 }
 
-function isRetweet(tweet: string) {
-  return tweet.startsWith('RT')
-}
-
 async function postman() {
   setInterval(async () => {
     const tweets = await prisma.tweetQueue.findMany({
@@ -191,7 +217,7 @@ async function postman() {
 
         users.forEach(async user => {
           try {
-            if (user.twitterId !== tweet.authorId && !isRetweet(tweet.text)) {
+            if (user.twitterId !== tweet.authorId) {
               const accessToken = await lookUpUser(user.twitterId)
               let isLiked = false
               let isReTweeted = false
