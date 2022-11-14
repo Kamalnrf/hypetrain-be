@@ -7,7 +7,7 @@ import {lookUpUser, likeTweet, retweet} from './actions'
 const postmanEmitter = new EventEmitter()
 
 const STREAM_URL =
-  'https://api.twitter.com/2/tweets/search/stream?tweet.fields=text&expansions=author_id'
+  'https://api.twitter.com/2/tweets/search/stream?tweet.fields=text&expansions=author_id,in_reply_to_user_id,referenced_tweets.id'
 
 const prisma = new PrismaClient()
 
@@ -32,10 +32,6 @@ type Tweet = {
   text: string
 }
 
-function isUnHypedTweet(text: string) {
-  return !text.includes('#hypetrain')
-}
-
 async function verifyAndPushToTweetQueue(tweet: Tweet) {
   const isValidUser = await isHypetrainUser(tweet.author_id)
   if (!isValidUser) {
@@ -45,14 +41,6 @@ async function verifyAndPushToTweetQueue(tweet: Tweet) {
       method: 'verifyAndPushToTweetQueue',
     })
     return
-  }
-
-  if (isUnHypedTweet(tweet.text)) {
-    logger.info({
-      message: 'Tweet does not have #hypetrain',
-      tweetId: tweet.id,
-      method: 'verifyAndPushToTweetQueue',
-    })
   }
 
   if (isRetweet(tweet.text)) {
