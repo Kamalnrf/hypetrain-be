@@ -1,12 +1,12 @@
-FROM debian:bullseye as builder
+FROM node:18-bullseye as builder
 
 ARG NODE_VERSION=18.3.0
 
 RUN apt-get update; apt install -y curl
-RUN curl https://get.volta.sh | bash
-ENV VOLTA_HOME /root/.volta
-ENV PATH /root/.volta/bin:$PATH
-RUN volta install node@${NODE_VERSION}
+# RUN curl https://get.volta.sh | bash
+# ENV VOLTA_HOME /root/.volta
+# ENV PATH /root/.volta/bin:$PATH
+# RUN volta install node@${NODE_VERSION}
 
 #######################################################################
 
@@ -15,16 +15,20 @@ WORKDIR /app
 
 COPY . .
 
+RUN apt-get update && apt-get install -y openssl && apt-get install -y ca-certificates
+
 RUN npm install && npm run build
-FROM debian:bullseye
+FROM node:18-bullseye
 
 LABEL fly_launch_runtime="nodejs"
 
-COPY --from=builder /root/.volta /root/.volta
+# COPY --from=builder /root/.volta /root/.volta
 COPY --from=builder /app /app
 
 WORKDIR /app
 ENV NODE_ENV production
-ENV PATH /root/.volta/bin:$PATH
+# ENV PATH /root/.volta/bin:$PATH
+
+RUN npx prisma generate
 
 CMD [ "npm", "run", "start" ]
