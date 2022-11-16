@@ -7,7 +7,7 @@ import {lookUpUser, likeTweet, retweet} from './actions'
 const postmanEmitter = new EventEmitter()
 
 const STREAM_URL =
-  'https://api.twitter.com/2/tweets/search/stream?tweet.fields=text&expansions=author_id'
+  'https://api.twitter.com/2/tweets/search/stream?tweet.fields=text&expansions=author_id,in_reply_to_user_id,referenced_tweets.id'
 
 const prisma = new PrismaClient()
 
@@ -25,11 +25,44 @@ function isHypetrainUser(authorId: string) {
   return user
 }
 
+type TweetReference = {
+  id: string
+  type: 'retweeted' | 'replied_to' | 'quoted'
+}[]
+
 type Tweet = {
   author_id: string
   edit_history_tweet_ids: string[]
+  referenced_tweets?: {
+    id: string
+    type: 'retweeted' | 'replied_to' | 'quoted'
+  }[]
   id: string
   text: string
+}
+
+async function isReferencedTweetHyped(referenced_tweets?: TweetReference) {
+  const tweetIds = referenced_tweets?.map(tweet => tweet.id)
+  if (!(tweetIds.length >= 1)) {
+    return false
+  }
+
+  for (const id of tweetIds) {
+    const activity = await prisma.activity.findFirst({
+      where: {
+        tweetId: id,
+      },
+      select: {
+        authorId: true,
+      },
+    })
+
+    if (activity?.authorId?.length > 0) {
+      return true
+    }
+  }
+
+  return false
 }
 
 async function verifyAndPushToTweetQueue(tweet: Tweet) {
@@ -43,10 +76,13 @@ async function verifyAndPushToTweetQueue(tweet: Tweet) {
     return
   }
 
-  if (isRetweet(tweet.text)) {
+  const isAlreadyHyped = await isReferencedTweetHyped(tweet?.referenced_tweets)
+
+  if (tweet?.referenced_tweets && isAlreadyHyped) {
     logger.info({
-      message: `Retweet tweets are not hyped`,
+      message: 'Refrenced Tweet is already hyped',
       tweetId: tweet.id,
+      details: tweet,
       method: 'verifyAndPushToTweetQueue',
     })
     return
@@ -84,7 +120,6 @@ async function streamTweets(retryAttempt: number) {
       },
       responseType: 'stream',
     })
-
     logger.info({message: 'Streaming Tweets', method: 'streamTweets'})
     stream
       .on('data', (data: unknown) => {
@@ -159,10 +194,6 @@ async function streamTweets(retryAttempt: number) {
   }
 }
 
-function isRetweet(tweet: string) {
-  return tweet.startsWith('RT')
-}
-
 async function postman() {
   setInterval(async () => {
     const tweets = await prisma.tweetQueue.findMany({
@@ -183,15 +214,14 @@ async function postman() {
           retweetTweets: boolean
           userId: number
         }[] = await prisma.$queryRaw`
-        SELECT 
-          *
-        FROM "User"
-        RIGHT JOIN "Preferences"
-          ON "User".id = "Preferences"."userId";`
+        SELECT User.twitterId, Preferences.likeTweets, Preferences.retweetTweets, Preferences.userId FROM User
+        CROSS JOIN Preferences
+        WHERE User.id=Preferences.userId;
+        `
 
         users.forEach(async user => {
           try {
-            if (user.twitterId !== tweet.authorId && !isRetweet(tweet.text)) {
+            if (user.twitterId !== tweet.authorId) {
               const accessToken = await lookUpUser(user.twitterId)
               let isLiked = false
               let isReTweeted = false
@@ -203,7 +233,6 @@ async function postman() {
                   tweetId: tweet.tweetId,
                 })
               }
-
               if (user.retweetTweets) {
                 isReTweeted = await retweet({
                   twitterAccessToken: accessToken,
@@ -212,7 +241,6 @@ async function postman() {
                   tweetId: tweet.tweetId,
                 })
               }
-
               logger.info({
                 message: `Update tweet(${tweet.tweetId}) in Activity for user(${user.userId})`,
                 tweetId: tweet.tweetId,

@@ -1,20 +1,19 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["referentialIntegrity"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
+  referentialIntegrity = "prisma"
 }
 
 model User {
   id        Int      @id @default(autoincrement())
   twitterId String   @unique
-  name      String 
-  username  String 
+  name      String
+  username  String
   email     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -22,11 +21,13 @@ model User {
 
 model UserTwitter {
   id           Int      @id @default(autoincrement())
-  userId       Int      @unique 
+  userId       Int      @unique
   twitterId    String   @unique
-  accessToken  String 
-  refreshToken String 
+  accessToken  String
+  refreshToken String
   updatedAt    DateTime @updatedAt
+
+  @@index([userId, twitterId])
 }
 
 model Preferences {
@@ -35,21 +36,27 @@ model Preferences {
   likeTweets    Boolean
   retweetTweets Boolean
   updatedAt     DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model TweetQueue {
   id       Int     @id @default(autoincrement())
   tweetId  String  @unique
-  authorId String 
-  text     String
+  authorId String
+  text     String  @db.Text
   isHyped  Boolean
+
+  @@index([tweetId, authorId])
 }
 
 model Activity {
-  id        Int    @id @default(autoincrement())
+  id        Int     @id @default(autoincrement())
   tweetId   String
   authorId  String
   userId    Int
   isLike    Boolean
   isRetweet Boolean
+
+  @@index([tweetId, authorId])
 }
