@@ -76,16 +76,20 @@ async function verifyAndPushToTweetQueue(tweet: Tweet) {
     return
   }
 
-  const isAlreadyHyped = await isReferencedTweetHyped(tweet?.referenced_tweets)
+  if (tweet?.referenced_tweets) {
+    const isAlreadyHyped = await isReferencedTweetHyped(
+      tweet?.referenced_tweets,
+    )
 
-  if (tweet?.referenced_tweets && isAlreadyHyped) {
-    logger.info({
-      message: 'Refrenced Tweet is already hyped',
-      tweetId: tweet.id,
-      details: tweet,
-      method: 'verifyAndPushToTweetQueue',
-    })
-    return
+    if (isAlreadyHyped) {
+      logger.info({
+        message: 'Refrenced Tweet is already hyped',
+        tweetId: tweet.id,
+        details: tweet,
+        method: 'verifyAndPushToTweetQueue',
+      })
+      return
+    }
   }
 
   pushToTweetQueue(tweet)
