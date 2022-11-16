@@ -41,8 +41,12 @@ type Tweet = {
   text: string
 }
 
-async function isReferencedTweetHyped(referenced_tweets: TweetReference) {
-  const tweetIds = referenced_tweets.map(tweet => tweet.id)
+async function isReferencedTweetHyped(referenced_tweets?: TweetReference) {
+  const tweetIds = referenced_tweets?.map(tweet => tweet.id)
+  if (!(tweetIds.length >= 1)) {
+    return false
+  }
+
   for (const id of tweetIds) {
     const activity = await prisma.activity.findFirst({
       where: {
@@ -53,7 +57,7 @@ async function isReferencedTweetHyped(referenced_tweets: TweetReference) {
       },
     })
 
-    if (activity?.authorId) {
+    if (activity?.authorId?.length > 0) {
       return true
     }
   }
@@ -72,7 +76,9 @@ async function verifyAndPushToTweetQueue(tweet: Tweet) {
     return
   }
 
-  if (isReferencedTweetHyped(tweet.referenced_tweets)) {
+  const isAlreadyHyped = await isReferencedTweetHyped(tweet?.referenced_tweets)
+
+  if (tweet?.referenced_tweets && isAlreadyHyped) {
     logger.info({
       message: 'Refrenced Tweet is already hyped',
       tweetId: tweet.id,
@@ -114,7 +120,6 @@ async function streamTweets(retryAttempt: number) {
       },
       responseType: 'stream',
     })
-
     logger.info({message: 'Streaming Tweets', method: 'streamTweets'})
     stream
       .on('data', (data: unknown) => {
@@ -209,11 +214,10 @@ async function postman() {
           retweetTweets: boolean
           userId: number
         }[] = await prisma.$queryRaw`
-        SELECT 
-          *
-        FROM "User"
-        RIGHT JOIN "Preferences"
-          ON "User".id = "Preferences"."userId";`
+        SELECT User.twitterId, Preferences.likeTweets, Preferences.retweetTweets, Preferences.userId FROM User
+        CROSS JOIN Preferences
+        WHERE User.id=Preferences.userId;
+        `
 
         users.forEach(async user => {
           try {
@@ -229,7 +233,6 @@ async function postman() {
                   tweetId: tweet.tweetId,
                 })
               }
-
               if (user.retweetTweets) {
                 isReTweeted = await retweet({
                   twitterAccessToken: accessToken,
@@ -238,7 +241,6 @@ async function postman() {
                   tweetId: tweet.tweetId,
                 })
               }
-
               logger.info({
                 message: `Update tweet(${tweet.tweetId}) in Activity for user(${user.userId})`,
                 tweetId: tweet.tweetId,
