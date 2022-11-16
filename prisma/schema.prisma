@@ -3,11 +3,12 @@
 
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["referentialIntegrity"]
 }
-
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "mysql"
+  url = env("DATABASE_URL")
+  referentialIntegrity = "prisma"
 }
 
 model User {
@@ -24,9 +25,11 @@ model UserTwitter {
   id           Int      @id @default(autoincrement())
   userId       Int      @unique 
   twitterId    String   @unique
-  accessToken  String 
-  refreshToken String 
+  accessToken  String   
+  refreshToken String   
   updatedAt    DateTime @updatedAt
+
+  @@index([userId,twitterId])
 }
 
 model Preferences {
@@ -35,14 +38,18 @@ model Preferences {
   likeTweets    Boolean
   retweetTweets Boolean
   updatedAt     DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model TweetQueue {
   id       Int     @id @default(autoincrement())
   tweetId  String  @unique
   authorId String 
-  text     String
+  text     String  @db.Text
   isHyped  Boolean
+
+  @@index([tweetId, authorId])
 }
 
 model Activity {
@@ -52,4 +59,6 @@ model Activity {
   userId    Int
   isLike    Boolean
   isRetweet Boolean
+
+  @@index([tweetId, authorId])
 }
