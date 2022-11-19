@@ -1,6 +1,9 @@
 import {expressjwt, Request} from 'express-jwt'
 import {Response, NextFunction} from 'express'
 import jwt from 'jsonwebtoken'
+import { PrismaClient } from '@prisma/client'
+
+const prisma = new PrismaClient();
 
 const secret = process.env.AUTH_SECRET
 const sixtyDaysInSeconds = 60 * 60 * 24 * 60
@@ -41,4 +44,27 @@ function verifyUserId(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-export {authMiddleware, getUserToken, verifyUserId}
+function verifyAdmin(req: Request, res: Response, next: NextFunction) {
+  const id = req.auth.id
+  prisma.user.findFirst({
+    where: {
+      id: id,
+    },
+    select: {
+      isAdmin: true,
+    }
+  }).then(user => {
+    if (user.isAdmin) {
+      next()
+    } else {
+      res.status(401).json({
+        success: false,
+        error: {
+          message: 'user not an admin'
+        }
+      })
+    }
+  })
+}
+
+export {authMiddleware, getUserToken, verifyUserId, verifyAdmin}
