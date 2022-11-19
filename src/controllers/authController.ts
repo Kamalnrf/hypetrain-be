@@ -50,35 +50,27 @@ async function register(req: Request, res: Response) {
         twitterId: twitter.data.id,
         name: twitter.data.name,
         username: twitter.data.username,
-      },
-      update: {},
-    })
-
-    await prisma.preferences.upsert({
-      where: {
-        userId: user.id,
-      },
-      create: {
-        likeTweets: true,
-        retweetTweets: true,
-        userId: user.id,
-      },
-      update: {},
-    })
-
-    await prisma.userTwitter.upsert({
-      where: {
-        userId: user.id,
-      },
-      create: {
-        accessToken: accessToken,
-        refreshToken: refreshToken,
-        twitterId: user.twitterId,
-        userId: user.id,
+        userTwitter: {
+          create: {
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            twitterId: twitter.data.id,
+          },
+        },
+        preferences: {
+          create: {
+            likeTweets: true,
+            retweetTweets: true,
+          },
+        },
       },
       update: {
-        accessToken: accessToken,
-        refreshToken: refreshToken,
+        userTwitter: {
+          update: {
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+          },
+        },
       },
     })
 

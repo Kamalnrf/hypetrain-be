@@ -175,3 +175,117 @@ export async function likeTweet(tweetDetails: TweetDetails) {
 
   return false
 }
+
+type UndoTweet = {
+  tweetId: string,
+  twitterId: string,
+  twitterAccessToken: string,
+  refreshToken: string
+}
+
+export async function undoLikeTweet(tweetDetails: UndoTweet) {
+  try {
+    await axios.delete(
+      `https://api.twitter.com/2/users/${tweetDetails.twitterId}/likes/${tweetDetails.tweetId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${tweetDetails.twitterAccessToken}`,
+        },
+      },
+    )
+
+    logger.info({
+      event: 'TWEET-LIKE-DELETED',
+      message: `Tweet ${tweetDetails.tweetId} like deleted`,
+      method: 'undoLikeTweet',
+      tweetId: tweetDetails.tweetId,
+    })
+
+    return true
+  } catch (error) {
+    if (error instanceof AxiosError) {
+      if (error instanceof AxiosError && error.response.status === 401) {
+        await refreshToken(tweetDetails.twitterId, tweetDetails.refreshToken)
+        Promise.resolve(await undoLikeTweet(tweetDetails))
+      } else {
+        logger.warn({
+          event: 'TWEET-LIKE-DELETE-FAILED',
+          message: `Tweet to delete like cannot be found.`,
+          tweetId: tweetDetails.tweetId,
+          error: error.response.data,
+          method: 'undoLikeTweet',
+        })
+      }
+    }
+  }
+}
+
+export async function undoRetweetTweet(tweetDetails: UndoTweet) {
+  try {
+    await axios.delete(
+      `https://api.twitter.com/2/users/${tweetDetails.twitterId}/retweets/${tweetDetails.tweetId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${tweetDetails.twitterAccessToken}`,
+        },
+      },
+    )
+
+    logger.info({
+      event: 'TWEET-RETWEET-DELETED',
+      message: `Tweet ${tweetDetails.tweetId} retweet deleted`,
+      method: 'undoRetweetTweet',
+      tweetId: tweetDetails.tweetId,
+    })
+
+    return true
+  } catch (error) {
+    if (error instanceof AxiosError && error.response.status === 401) {
+      await refreshToken(tweetDetails.twitterId, tweetDetails.refreshToken)
+      Promise.resolve(await undoRetweetTweet(tweetDetails))
+    } else {
+      logger.warn({
+        event: 'TWEET-RETWEET-DELETE-FAILED',
+        message: `Tweet to delete retweet cannot be found.`,
+        tweetId: tweetDetails.tweetId,
+        error: error.response.data,
+        method: 'undoRetweetTweet',
+      })
+    }
+  }
+}
+
+export async function deleteTweet(tweetDetails: UndoTweet) {
+  try {
+    await axios.delete(
+      `https://api.twitter.com/2/tweets/${tweetDetails.tweetId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${tweetDetails.twitterAccessToken}`,
+        },
+      },
+    )
+
+    logger.info({
+      event: 'TWEET-DELETED',
+      message: `Tweet ${tweetDetails.tweetId} deleted`,
+      method: 'retweet',
+      tweetId: tweetDetails.tweetId,
+    })
+
+    return true
+  } catch (error) {
+    if (error instanceof AxiosError && error.response.status === 401) {
+      await refreshToken(tweetDetails.twitterId, tweetDetails.refreshToken)
+      Promise.resolve(await deleteTweet(tweetDetails))
+    } else {
+      logger.warn({
+        event: 'TWEET-DELETE-FAILED',
+        message: `Tweet to delete cannot be found.`,
+        tweetId: tweetDetails.tweetId,
+        error: error.response.data,
+        method: 'deleteTweet',
+      })
+    }
+  }
+}
