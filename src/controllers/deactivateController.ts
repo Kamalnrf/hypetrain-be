@@ -17,42 +17,9 @@ async function deactivateUser(req: Request, res: Response) {
   }
 
   try {
-    const userTwitter = await prisma.userTwitter.findUnique({
-      where: {
-        userId: id,
-      },
-      select: {
-        twitterId: true,
-      },
-    })
-
-    await prisma.activity.deleteMany({
-      where: {
-        userId: id,
-      },
-    })
-
-    await prisma.preferences.delete({
-      where: {
-        userId: id,
-      },
-    })
-
-    await prisma.tweetQueue.deleteMany({
-      where: {
-        authorId: userTwitter.twitterId,
-      },
-    })
-
     await prisma.user.delete({
       where: {
         id: id,
-      },
-    })
-
-    await prisma.userTwitter.delete({
-      where: {
-        userId: id,
       },
     })
 

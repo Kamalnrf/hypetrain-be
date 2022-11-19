@@ -12,6 +12,10 @@ const STREAM_URL =
 const prisma = new PrismaClient()
 
 function isHypetrainUser(authorId: string) {
+  logger.info({
+    message: 'isHypeTrain User Check',
+    error: authorId,
+  })
   const user = prisma.user.findUnique({
     where: {
       twitterId: authorId,
@@ -20,6 +24,11 @@ function isHypetrainUser(authorId: string) {
       id: true,
       twitterId: true,
     },
+  })
+
+  logger.info({
+    message: 'User Fetched',
+    user: user,
   })
 
   return user
@@ -97,6 +106,9 @@ async function verifyAndPushToTweetQueue(tweet: Tweet) {
 }
 
 async function pushToTweetQueue(tweet: Tweet) {
+  logger.info('ADDING TO TWEET QUEUE', {
+    tweet: tweet,
+  })
   await prisma.tweetQueue.upsert({
     where: {tweetId: tweet.id},
     create: {
