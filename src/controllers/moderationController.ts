@@ -9,7 +9,6 @@ const prisma = new PrismaClient()
 
 export async function undoTweet(req: Request, res: Response) {
   const tweetId = req.params.tweetId
-  console.log(tweetId)
 
   const allTweets = await prisma.activity.findMany({
     where: {
